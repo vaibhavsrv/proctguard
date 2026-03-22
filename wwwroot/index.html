@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Fraud Detection Demo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <style>
+        body {
+            background: #f4f6fb;
+            font-family: 'Roboto', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 420px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            padding: 32px 28px 24px 28px;
+        }
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 24px;
+            font-size: 2rem;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        input {
+            padding: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border 0.2s;
+        }
+        input:focus {
+            border: 1.5px solid #3182ce;
+            outline: none;
+        }
+        button {
+            padding: 12px;
+            background: linear-gradient(90deg, #3182ce 0%, #63b3ed 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: linear-gradient(90deg, #2563eb 0%, #4299e1 100%);
+        }
+        #result {
+            margin-top: 18px;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+        .alerts-section {
+            margin-top: 36px;
+        }
+        h2 {
+            color: #2d3748;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+        #alerts {
+            min-height: 32px;
+        }
+        .alert {
+            background: #fff5f5;
+            color: #c53030;
+            border-left: 4px solid #c53030;
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 1rem;
+            box-shadow: 0 2px 8px rgba(203,48,48,0.04);
+            animation: fadeIn 0.5s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 500px) {
+            .container {
+                padding: 18px 6px 16px 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fraud Detection Demo</h1>
+        <form id="txnForm">
+            <input id="txnId" placeholder="Transaction ID" required />
+            <input id="amount" type="number" placeholder="Amount" required min="0" step="0.01" />
+            <input id="account" placeholder="Account Number" required />
+            <button type="submit">Submit Transaction</button>
+        </form>
+        <div id="result"></div>
+        <div class="alerts-section">
+            <h2>Fraud Alerts</h2>
+            <div id="alerts"></div>
+        </div>
+    </div>
+    <script>
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/fraudAlertHub")
+            .build();
+
+        connection.on("ReceiveFraudAlert", (transactionId, reason) => {
+            const alerts = document.getElementById("alerts");
+            const alertDiv = document.createElement("div");
+            alertDiv.className = "alert";
+            alertDiv.innerHTML = `<strong>Fraud Alert!</strong> Txn <b>${transactionId}</b>: ${reason}`;
+            alerts.prepend(alertDiv);
+        });
+
+        connection.start();
+
+        document.getElementById("txnForm").onsubmit = async (e) => {
+            e.preventDefault();
+            const txnId = document.getElementById("txnId").value;
+            const amount = parseFloat(document.getElementById("amount").value);
+            const account = document.getElementById("account").value;
+            const resultDiv = document.getElementById("result");
+            resultDiv.innerHTML = "<span style='color:#3182ce;'>Processing...</span>";
+            try {
+                const res = await fetch("/api/transaction", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ transactionId: txnId, amount, accountNumber: account })
+                });
+                const data = await res.json();
+                resultDiv.innerHTML = res.ok ? `<span style='color:green;'>${data.message}</span>` : `<span style='color:#c53030;'>${data.message}: ${data.reason}</span>`;
+            } catch (err) {
+                resultDiv.innerHTML = `<span style='color:#c53030;'>Error submitting transaction.</span>`;
+            }
+        };
+    </script>
+</body>
+</html> 
